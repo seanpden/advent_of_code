@@ -35,20 +35,38 @@ class DialInstruction:
 
 
 class DialState:
-    def __init__(self) -> None:
+    def __init__(self, any_click: bool = False) -> None:
         self.position: int = 50  # 0-99
         self.zero_count: int = 0
+        self.any_click: bool = any_click
 
     def turn_dial(self, instruction: DialInstruction) -> None:
-        num = instruction.movement % 100
-
         match instruction.direction:
             case Direction.LEFT:
-                self.position = (self.position - num) % 100
+                # pos-1 -> Shift boundary for floor
+                # (pos - 1) // 100 -> Which bucket are we in
+                # (pos-1)-1, (pos-1)-2, ..., (pos-1)-clicks -> Ending position with shift
+                # ((pos - 1) - clicks) // 100 -> Which bucket is the ending pos in
+                # ((P - 1) // 100) - ((P - 1 - M) // 100) -> Start - End
+                if self.any_click:
+                    self.zero_count += (self.position - 1) // 100 - (
+                        self.position - 1 - instruction.movement
+                    ) // 100
+                self.position = self.position - instruction.movement
             case Direction.RIGHT:
-                self.position = (self.position + num) % 100
+                # pos+1, pos+2, ..., pos+clicks -> how many clicks to move
+                # (pos + clicks) // 100 -> How many group of 100 in ending position
+                # pos // 100 -> how many complete groups of 100 in position
+                # ((P + M) // 100) - (P // 100) -> End position 100 groupings - current groupings
+                if self.any_click:
+                    self.zero_count += (
+                        self.position + instruction.movement
+                    ) // 100 - self.position // 100
+                self.position = self.position + instruction.movement
 
-        if self.position == 0:
+        self.position = self.position % 100
+
+        if not self.any_click and self.position == 0:
             self.zero_count += 1
 
 
@@ -61,7 +79,7 @@ def parse_input(data: list[str]) -> list[DialInstruction]:
 
 
 def main():
-    dial_state = DialState()
+    dial_state = DialState(True)
 
     data = read_input(INPUT)
     parsed_data = parse_input(data)
