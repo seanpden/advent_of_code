@@ -12,86 +12,64 @@ class Direction(StrEnum):
     RIGHT = "right"
 
 
-@dataclass
+@dataclass(frozen=True)
 class DialInstruction:
     direction: Direction
     movement: int
 
+    @staticmethod
+    def from_string(s: str) -> "DialInstruction":
+        if not s or len(s) < 2:
+            raise ValueError(f"Invalid instruction format: {s}")
+
+        match s[0]:
+            case "L":
+                direction = Direction.LEFT
+            case "R":
+                direction = Direction.RIGHT
+            case invalid:
+                raise ValueError(f"Unexpected instruction: {invalid}")
+
+        movement = int(s[1:])
+        return DialInstruction(direction, movement)
+
 
 class DialState:
     def __init__(self) -> None:
-        self._current_number: int = 50  # 0-99
-        self._zero_counter: int = 0
+        self.position: int = 50  # 0-99
+        self.zero_count: int = 0
 
-    def turn_dial(self, direction: Direction, num: int):
-        num = num % 100
-        match direction:
+    def turn_dial(self, instruction: DialInstruction) -> None:
+        num = instruction.movement % 100
+
+        match instruction.direction:
             case Direction.LEFT:
-                curr = self._turn_left(num)
-                if curr == 0:
-                    self._zero_counter += 1
+                self.position = (self.position - num) % 100
             case Direction.RIGHT:
-                curr = self._turn_right(num)
-                if curr == 0:
-                    self._zero_counter += 1
+                self.position = (self.position + num) % 100
 
-    def _turn_left(self, num: int):
-        if self._current_number - num < 0:
-            self._current_number = self._current_number - num + 100
-            return self._current_number
-
-        self._current_number -= num
-        return self._current_number
-
-    def _turn_right(self, num: int):
-        if self._current_number + num > 99:
-            self._current_number = self._current_number + num - 100
-            return self._current_number
-
-        self._current_number += num
-        return self._current_number
+        if self.position == 0:
+            self.zero_count += 1
 
 
-def read_input(path: Path):
-    with open(path, "r") as f:
-        data = f.read().splitlines()
-    return data
-
-
-def _get_direction(data: str) -> Direction:
-    dir: Direction
-    match data[0]:
-        case "L":
-            dir = Direction.LEFT
-        case "R":
-            dir = Direction.RIGHT
-        case _:
-            raise ValueError(f"Unexpected instruction: {data}")
-    return dir
-
-
-def _get_count(data: str) -> int:
-    return int(data[1::])
+def read_input(path: Path) -> list[str]:
+    return path.read_text().splitlines()
 
 
 def parse_input(data: list[str]) -> list[DialInstruction]:
-    resp = []
-    for ele in data:
-        dir = _get_direction(ele)
-        count = _get_count(ele)
-        resp.append(DialInstruction(dir, count))
-
-    return resp
+    return [DialInstruction.from_string(ele) for ele in data]
 
 
 def main():
-    data = read_input(INPUT)
-    parsed_data = parse_input(data)
     dial_state = DialState()
 
+    data = read_input(INPUT)
+    parsed_data = parse_input(data)
+
     for ele in parsed_data:
-        dial_state.turn_dial(ele.direction, ele.movement)
-    print(dial_state._zero_counter)
+        dial_state.turn_dial(ele)
+
+    print("Password: ", dial_state.zero_count)
 
 
 if __name__ == "__main__":
